@@ -10,7 +10,12 @@
       <Aliases>DMBlobs</Aliases>
     </ProjectReference>
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.DataMovement\src\Azure.Storage.DataMovement.csproj" />
-    <PackageReference Include="Azure.Storage.Blobs" Aliases="BaseBlobs" />
+    <!-- Test projects use ProjectReference for reliable extern alias support. -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.Blobs\src\Azure.Storage.Blobs.csproj">
+      <Aliases>BaseBlobs</Aliases>
+    </ProjectReference>
+    <!-- Block the transitive PackageReference from the main library to prevent conflicts with the ProjectReference above -->
+    <PackageReference Include="Azure.Storage.Blobs" ExcludeAssets="All" />
   </ItemGroup>
   <ItemGroup>
     <!-- Required Shared Source for testing -->
