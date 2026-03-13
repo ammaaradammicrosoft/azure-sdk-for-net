@@ -10,9 +10,7 @@
       <Aliases>DMShare</Aliases>
     </ProjectReference>
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.DataMovement\src\Azure.Storage.DataMovement.csproj" />
-    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.Files.Shares\src\Azure.Storage.Files.Shares.csproj">
-      <Aliases>BaseShares</Aliases>
-    </ProjectReference>
+    <PackageReference Include="Azure.Storage.Files.Shares" Aliases="BaseShares" />
   </ItemGroup>
   <ItemGroup>
     <!-- Required Shared Source for testing -->
