@@ -21,8 +21,9 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Azure.Core" />
-    <!-- Use private drop package with PrivateAssets to prevent transitive flow to test projects -->
-    <PackageReference Include="Azure.Storage.Blobs" PrivateAssets="All" />
+    <!-- Use private drop package with PrivateAssets to prevent compile-time transitive flow to test projects.
+         We only exclude 'compile' (not 'All') so runtime assemblies are available for AOT and packaging. -->
+    <PackageReference Include="Azure.Storage.Blobs" PrivateAssets="compile" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.DataMovement\src\Azure.Storage.DataMovement.csproj" />
     <PackageReference Include="System.Threading.Channels" />
   </ItemGroup>
