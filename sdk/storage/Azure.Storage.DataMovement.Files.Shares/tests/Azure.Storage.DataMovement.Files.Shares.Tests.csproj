@@ -10,12 +10,11 @@
       <Aliases>DMShare</Aliases>
     </ProjectReference>
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.DataMovement\src\Azure.Storage.DataMovement.csproj" />
-    <!-- Test projects use ProjectReference for reliable extern alias support. -->
+    <!-- Test projects use ProjectReference for reliable extern alias support.
+         The main library's private drop package dependency is marked PrivateAssets="All" so it doesn't flow here. -->
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.Files.Shares\src\Azure.Storage.Files.Shares.csproj">
       <Aliases>BaseShares</Aliases>
     </ProjectReference>
-    <!-- Block the transitive PackageReference from the main library to prevent conflicts with the ProjectReference above -->
-    <PackageReference Include="Azure.Storage.Files.Shares" ExcludeAssets="All" />
   </ItemGroup>
   <ItemGroup>
     <!-- Required Shared Source for testing -->

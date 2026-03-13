@@ -22,10 +22,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Azure.Core" />
-    <!-- <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.Files.Shares\src\Azure.Storage.Files.Shares.csproj" /> -->
-    <!-- The PackageReference is commented out because Azure.Storage.Files.Shares is now included via ProjectReference above. -->
-    <!-- It is retained here for reference in case the dependency needs to be switched back to a PackageReference in the future. -->
-    <PackageReference Include="Azure.Storage.Files.Shares"/>
+    <!-- Use private drop package with PrivateAssets to prevent transitive flow to test projects -->
+    <PackageReference Include="Azure.Storage.Files.Shares" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\Azure.Storage.DataMovement\src\Azure.Storage.DataMovement.csproj" />
     <PackageReference Include="System.Threading.Channels" />
   </ItemGroup>
