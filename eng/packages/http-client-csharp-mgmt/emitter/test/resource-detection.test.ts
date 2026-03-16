@@ -2835,6 +2835,196 @@ interface TenantTranscripts {
     );
   });
 
+  it("@subscriptionResource model used in tenant-scoped LegacyOperations - scope comparison", async () => {
+    // This test documents how both buildArmProviderSchema (legacy detection) and
+    // resolveArmResources handle the case where a model decorated with @subscriptionResource
+    // is used in legacy operations at both subscription and tenant scopes.
+    // This mirrors the Support SDK's SupportTicketDetails pattern where the same model
+    // is used by SupportTickets (subscription) and SupportTicketsNoSubscription (tenant).
+    const program = await typeSpecCompile(
+      `
+/** A support ticket resource - decorated as @subscriptionResource */
+#suppress "@azure-tools/typespec-azure-core/no-legacy-usage" "Testing cross-scope"
+@subscriptionResource
+model SupportTicketDetails is ProxyResource<SupportTicketProperties> {
+  ...ResourceNameParameter<
+    Resource = SupportTicketDetails,
+    KeyName = "supportTicketName",
+    SegmentName = "supportTickets",
+    NamePattern = ""
+  >;
+}
+/** Support ticket properties */
+model SupportTicketProperties {
+  /** Description */
+  description?: string;
+}
+
+// Subscription-scoped ticket operations (includes SubscriptionIdParameter)
+#suppress "@azure-tools/typespec-azure-core/no-legacy-usage" "Testing cross-scope"
+alias SubTicketOps = Azure.ResourceManager.Legacy.LegacyOperations<
+  {
+    ...ApiVersionParameter;
+    ...SubscriptionIdParameter;
+    ...Azure.ResourceManager.Legacy.Provider;
+  },
+  {
+    @segment("supportTickets")
+    @key
+    @TypeSpec.Http.path
+    supportTicketName: string;
+  }
+>;
+
+// Tenant-scoped ticket operations (no SubscriptionIdParameter)
+#suppress "@azure-tools/typespec-azure-core/no-legacy-usage" "Testing cross-scope"
+alias TenantTicketOps = Azure.ResourceManager.Legacy.LegacyOperations<
+  {
+    ...ApiVersionParameter;
+    ...Azure.ResourceManager.Legacy.Provider;
+  },
+  {
+    @segment("supportTickets")
+    @key
+    @TypeSpec.Http.path
+    supportTicketName: string;
+  }
+>;
+
+@armResourceOperations
+interface SupportTickets {
+  get is SubTicketOps.Read<SupportTicketDetails>;
+  list is SubTicketOps.List<SupportTicketDetails>;
+}
+
+@armResourceOperations
+interface SupportTicketsNoSubscription {
+  get is TenantTicketOps.Read<SupportTicketDetails>;
+  list is TenantTicketOps.List<SupportTicketDetails>;
+}
+`,
+      runner
+    );
+    const context = createEmitterContext(program);
+    const sdkContext = await createCSharpSdkContext(context);
+    const root = createModel(sdkContext);
+
+    // === Test buildArmProviderSchema (legacy detection) ===
+    const armProviderSchema = buildArmProviderSchema(sdkContext, root);
+    ok(armProviderSchema);
+
+    // Legacy detection should separate these into 2 resources (one per scope)
+    strictEqual(
+      armProviderSchema.resources.length,
+      2,
+      "Legacy detection should produce 2 resources (subscription + tenant)"
+    );
+
+    // Find each resource by its path pattern
+    const subTicket = armProviderSchema.resources.find(
+      (r) =>
+        r.metadata.resourceIdPattern.includes("/subscriptions/") &&
+        r.metadata.resourceIdPattern.endsWith(
+          "/supportTickets/{supportTicketName}"
+        )
+    );
+    const tenantTicket = armProviderSchema.resources.find(
+      (r) =>
+        !r.metadata.resourceIdPattern.includes("/subscriptions/") &&
+        r.metadata.resourceIdPattern.endsWith(
+          "/supportTickets/{supportTicketName}"
+        )
+    );
+
+    ok(subTicket, "Should have subscription-scoped ticket");
+    ok(tenantTicket, "Should have tenant-scoped ticket");
+
+    // Document the resourceScope values from legacy detection:
+    // The subscription-scoped resource correctly gets "Subscription"
+    strictEqual(
+      subTicket.metadata.resourceScope,
+      "Subscription",
+      "Subscription ticket resourceScope"
+    );
+
+    // The tenant-scoped resource gets "Subscription" from the model's @subscriptionResource
+    // decorator, even though all its methods have operationScope "Tenant".
+    // This is the behavior documented in the issue - the decorator takes precedence
+    // over the method-derived scope in the legacy detection path.
+    strictEqual(
+      tenantTicket.metadata.resourceScope,
+      "Subscription",
+      "Tenant ticket resourceScope from legacy detection (decorator wins over methods)"
+    );
+
+    // Verify that the methods themselves correctly have Tenant scope
+    for (const method of tenantTicket.metadata.methods) {
+      strictEqual(
+        method.operationScope,
+        "Tenant",
+        `Tenant ticket method ${method.kind} should have Tenant operationScope`
+      );
+    }
+
+    // Verify subscription ticket methods have Subscription scope
+    for (const method of subTicket.metadata.methods) {
+      strictEqual(
+        method.operationScope,
+        "Subscription",
+        `Subscription ticket method ${method.kind} should have Subscription operationScope`
+      );
+    }
+
+    // === Test resolveArmResources ===
+    const resolvedSchema = resolveArmResources(program, sdkContext);
+    ok(resolvedSchema);
+
+    // Document what resolveArmResources produces for this scenario.
+    // resolveArmResources uses the ARM resource resolver which derives scope from
+    // the resolved resource's scope property, not from model decorators.
+    const resolvedSubTicket = resolvedSchema.resources.find(
+      (r) =>
+        r.metadata.resourceIdPattern.includes("/subscriptions/") &&
+        r.metadata.resourceIdPattern.endsWith(
+          "/supportTickets/{supportTicketName}"
+        )
+    );
+    const resolvedTenantTicket = resolvedSchema.resources.find(
+      (r) =>
+        !r.metadata.resourceIdPattern.includes("/subscriptions/") &&
+        r.metadata.resourceIdPattern.endsWith(
+          "/supportTickets/{supportTicketName}"
+        )
+    );
+
+    // Log resource count and scopes for comparison
+    // resolveArmResources may produce a different number of resources than legacy detection
+    // because it can merge operations for the same model
+    ok(
+      resolvedSchema.resources.length >= 1,
+      `resolveArmResources produced ${resolvedSchema.resources.length} resource(s)`
+    );
+
+    if (resolvedSubTicket) {
+      // Document the resourceScope from resolveArmResources
+      strictEqual(
+        resolvedSubTicket.metadata.resourceScope,
+        "Subscription",
+        "resolveArmResources: subscription ticket resourceScope"
+      );
+    }
+
+    if (resolvedTenantTicket) {
+      // Document the resourceScope from resolveArmResources for tenant ticket
+      // resolveArmResources derives scope from the operation path, not the model decorator
+      strictEqual(
+        resolvedTenantTicket.metadata.resourceScope,
+        "Tenant",
+        "resolveArmResources: tenant ticket resourceScope"
+      );
+    }
+  });
+
   it("name constraints with all decorators via NamePattern and direct decorators", async () => {
     const program = await typeSpecCompile(
       `
