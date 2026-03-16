@@ -409,7 +409,7 @@ export function buildArmProviderSchema(
     }
   }
 
-  // Update the model's resourceScope based on the Read method's scope, falling back to resource scope decorator.
+  // Update the model's resourceScope based on resource scope decorator if it exists or based on the Read method's scope.
   // This is specific to legacy resource detection
   for (const [metadataKey, metadata] of resourcePathToMetadataMap) {
     const modelId = metadataKey.split("|")[0];
@@ -989,20 +989,7 @@ function getResourceScope(
   model: InputModelType,
   methods?: ResourceMethod[]
 ): ResourceScope {
-  // First, try to derive scope from the Read method's operationScope.
-  // Methods have accurate scope derived from their actual operation paths,
-  // which is more reliable than model decorators when a model is shared across scopes
-  // (e.g., a model with @subscriptionResource used by both subscription-scoped and tenant-scoped operations).
-  if (methods) {
-    const getMethod = methods.find(
-      (m) => m.kind === ResourceOperationKind.Read
-    );
-    if (getMethod) {
-      return getMethod.operationScope;
-    }
-  }
-
-  // Fall back to explicit scope decorators when no Read method is available
+  // First, check for explicit scope decorators
   const decorators = model.decorators;
   if (decorators?.some((d) => d.name == tenantResource)) {
     return ResourceScope.Tenant;
@@ -1010,6 +997,16 @@ function getResourceScope(
     return ResourceScope.Subscription;
   } else if (decorators?.some((d) => d.name == resourceGroupResource)) {
     return ResourceScope.ResourceGroup;
+  }
+
+  // Fall back to Read method's scope only if no scope decorators are found
+  if (methods) {
+    const getMethod = methods.find(
+      (m) => m.kind === ResourceOperationKind.Read
+    );
+    if (getMethod) {
+      return getMethod.operationScope;
+    }
   }
 
   // Final fallback to ResourceGroup
