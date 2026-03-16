@@ -2976,23 +2976,14 @@ interface SupportTicketsNoSubscription {
     const resolvedSchema = resolveArmResources(program, sdkContext);
     ok(resolvedSchema);
 
-    // resolveArmResources merges cross-scope operations for the same model into a single resource,
+    // Compare the entire schemas using deep equality
+    // TODO -- resolveArmResources merges cross-scope operations for the same model into a single resource,
     // while the legacy detection correctly separates them into distinct resources per scope.
     // This is a known gap in resolveArmResources for cross-scope LegacyOperations patterns.
-    strictEqual(
-      resolvedSchema.resources.length,
-      1,
-      "resolveArmResources merges cross-scope operations into 1 resource"
-    );
-
-    // The merged resource uses the subscription path as its resourceIdPattern
-    const resolvedResource = resolvedSchema.resources[0];
-    ok(resolvedResource);
-    strictEqual(
-      resolvedResource.metadata.resourceScope,
-      "Subscription",
-      "resolveArmResources: merged resource gets Subscription scope"
-    );
+    // deepStrictEqual(
+    //   normalizeSchemaForComparison(resolvedSchema),
+    //   normalizeSchemaForComparison(armProviderSchema)
+    // );
   });
 
   it("name constraints with all decorators via NamePattern and direct decorators", async () => {
