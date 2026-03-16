@@ -2793,6 +2793,20 @@ interface TenantTranscripts {
     ok(subTranscript, "Should have subscription-scoped transcript");
     ok(tenantTranscript, "Should have tenant-scoped transcript");
 
+    // Verify ticket resource scopes are correct
+    // Even though the SupportTicket model has @subscriptionResource, the tenant-scoped
+    // resource entry should derive its scope from the methods, not the model decorator
+    strictEqual(
+      subTicket.metadata.resourceScope,
+      "Subscription",
+      "Subscription-scoped ticket should have Subscription scope"
+    );
+    strictEqual(
+      tenantTicket.metadata.resourceScope,
+      "Tenant",
+      "Tenant-scoped ticket should have Tenant scope (not Subscription from model decorator)"
+    );
+
     // KEY ASSERTION: Tenant-scoped transcript should have tenant-scoped ticket as parent
     // (not the subscription-scoped ticket from @parentResource decorator)
     strictEqual(
