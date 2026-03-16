@@ -2949,8 +2949,7 @@ interface SupportTicketsNoSubscription {
 
     // The tenant-scoped resource gets "Subscription" from the model's @subscriptionResource
     // decorator, even though all its methods have operationScope "Tenant".
-    // This is the behavior documented in the issue - the decorator takes precedence
-    // over the method-derived scope in the legacy detection path.
+    // The decorator takes precedence over the method-derived scope in the legacy detection path.
     strictEqual(
       tenantTicket.metadata.resourceScope,
       "Subscription",
@@ -2997,7 +2996,7 @@ interface SupportTicketsNoSubscription {
         )
     );
 
-    // Log resource count and scopes for comparison
+    // Verify resource count from resolveArmResources
     // resolveArmResources may produce a different number of resources than legacy detection
     // because it can merge operations for the same model
     ok(
